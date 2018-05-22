@@ -9,17 +9,18 @@ public class DailyFlight extends SmartEntity {
 
     private String flightNo;
     private String flightDate;
+    private String status;
+    private Integer mileage;
+    private Integer duration;
+    private String aircraftModel;
+    private Float aircraftAge;
+    private Float punctualityRate;
     private String fromCity;
     private String toCity;
     private String fromAirport;
     private String toAirport;
     private String fromAirportCode;
     private String toAirportCode;
-    private Integer mileage;
-    private Integer duration;
-    private String aircraftModel;
-    private Float aircraftAge;
-    private Float punctualityRate;
     private String fromWeather;
     private String toWeather;
     private Integer fromVisibility;
@@ -45,6 +46,14 @@ public class DailyFlight extends SmartEntity {
 
     public void setFlightDate(String flightDate) {
         this.flightDate = flightDate;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public Integer getMileage() {

@@ -10,6 +10,6 @@ public class ImageTest {
 
     @Test
     public void parseImage() throws Exception{
-        System.out.println(ImageParser.parse("45:67"));
+        System.out.println(ImageParser.parse("1scasDQrTrlBeS29rfEBNg=="));
     }
 }

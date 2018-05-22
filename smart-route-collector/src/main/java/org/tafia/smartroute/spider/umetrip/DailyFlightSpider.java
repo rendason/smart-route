@@ -10,6 +10,7 @@ import us.codecraft.webmagic.Page;
 import us.codecraft.webmagic.Request;
 import us.codecraft.webmagic.Site;
 import us.codecraft.webmagic.Spider;
+import us.codecraft.webmagic.scheduler.PriorityScheduler;
 import us.codecraft.webmagic.selector.Selectable;
 
 import java.time.LocalDate;
@@ -59,7 +60,7 @@ public class DailyFlightSpider {
             int end = text.indexOf(")", start);
             String[] strings = text.substring(start + 13, end).split("'");
             String target = "http://www.umetrip.com/mskyweb/fs/fc.do?flightNo=" + strings[1] + "&date=" + strings[3] + "&channel=";
-            page.addTargetRequest(target);
+            page.addTargetRequest(new Request(target).setPriority(1));
             logger.info("add url: {}", target);
             count++;
         }
@@ -72,11 +73,12 @@ public class DailyFlightSpider {
         DailyFlight flight = new DailyFlight();
         flight.setFlightNo(flightDetail.xpath("div[@id='flySearch']//input[@id='byNumInput']/@value").toString());
         flight.setFlightDate(flightDetail.xpath("//div[@class='f_tit']/span/text()").toString().trim().split(" ")[1]);
-        flight.setMileage(Integer.valueOf(flightDetail.xpath("//li[@class='mileage']/span/text()").toString().replace("公里", "")));
+        flight.setStatus(flightDetail.xpath("//div[@class='state']/div/text()").toString());
+        flight.setMileage(toInt(flightDetail.xpath("//li[@class='mileage']/span/text()").toString().replace("公里", "")));
         flight.setDuration(convertToMinute(flightDetail.xpath("//li[@class='time']/span/text()").toString()));
         String[] modelAge = flightDetail.xpath("//li[@class='age']/span/text()").toString().split("[/年]");
         flight.setAircraftModel(modelAge[0]);
-        flight.setAircraftAge(Float.valueOf(modelAge[1]));
+        flight.setAircraftAge(toFloat(modelAge[1]));
         flight.setPunctualityRate(Float.valueOf(parseImage(flightDetail.xpath("//li[@class='per']/span/img/@src").toString())
                 .replace("%", "")));
         List<Selectable> nodes = flightDetail.xpath("div[@class='del_com']/div").nodes();
@@ -85,7 +87,7 @@ public class DailyFlightSpider {
         flight.setFromAirport(fromInfo[1]);
         flight.setFromAirportCode(fromInfo[2]);
         flight.setFromWeather(fromInfo[3]);
-        flight.setFromVisibility(Integer.valueOf(fromInfo[4]));
+        flight.setFromVisibility(toInt(fromInfo[4]));
         flight.setFromFlow(fromInfo[5]);
         flight.setPlannedDeparture(fromInfo[6]);
         flight.setActualDeparture(fromInfo[7]);
@@ -94,7 +96,7 @@ public class DailyFlightSpider {
         flight.setToAirport(toInfo[1]);
         flight.setToAirportCode(toInfo[2]);
         flight.setToWeather(toInfo[3]);
-        flight.setToVisibility(Integer.valueOf(toInfo[4]));
+        flight.setToVisibility(toInt(toInfo[4]));
         flight.setToFlow(toInfo[5]);
         flight.setPlannedInbound(toInfo[6]);
         flight.setActualInbound(toInfo[7]);
@@ -134,14 +136,32 @@ public class DailyFlightSpider {
         return ImageParser.parse(imageStr);
     }
 
+    private int toInt(String s) {
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    private float toFloat(String s) {
+        try {
+            return Float.parseFloat(s);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
     public static void main(String[] args) {
-        LocalDate date = LocalDate.now().minusDays(182);
+        //LocalDate date = LocalDate.now().minusDays(182);
+        LocalDate date = LocalDate.of(2018, 5, 1);
         while (date.isBefore(LocalDate.now())) {
             DailyFlightSpider spider = new DailyFlightSpider(date.getYear(), date.getMonthValue(), date.getDayOfMonth());
             date = date.plusDays(1);
             MultiplePageProcessor processor = new MultiplePageProcessor(Site.me().setCharset("UTF-8").setRetryTimes(3));
             processor.addProcessMethod(spider);
             Spider.create(processor)
+                    .setScheduler(new PriorityScheduler())
                     .addUrl("http://www.umetrip.com/mskyweb/js/citiesData.js")
                     .addPipeline(new StoragePipeline())
                     .thread(4)
