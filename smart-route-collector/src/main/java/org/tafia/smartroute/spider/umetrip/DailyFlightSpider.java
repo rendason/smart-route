@@ -13,7 +13,10 @@ import us.codecraft.webmagic.Spider;
 import us.codecraft.webmagic.scheduler.PriorityScheduler;
 import us.codecraft.webmagic.selector.Selectable;
 
+import java.io.File;
 import java.time.LocalDate;
+import java.time.Month;
+import java.time.Year;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -21,13 +24,14 @@ import java.util.stream.IntStream;
 
 public class DailyFlightSpider {
 
+    private Logger logger = LoggerFactory.getLogger(getClass());
+
     private LocalDate flightDate;
 
     public DailyFlightSpider(int year, int month, int day) {
         flightDate = LocalDate.of(year, month, day);
+        logger.info("Create daily flight spider for {}", flightDate);
     }
-
-    private Logger logger = LoggerFactory.getLogger(getClass());
 
     @PageUrlStartsWith("http://www.umetrip.com/mskyweb/js/citiesData.js")
     private void processCitiesData(Page page) {
@@ -79,7 +83,7 @@ public class DailyFlightSpider {
         String[] modelAge = flightDetail.xpath("//li[@class='age']/span/text()").toString().split("[/年]");
         flight.setAircraftModel(modelAge[0]);
         flight.setAircraftAge(toFloat(modelAge[1]));
-        flight.setPunctualityRate(Float.valueOf(parseImage(flightDetail.xpath("//li[@class='per']/span/img/@src").toString())
+        flight.setPunctualityRate(toFloat(parseImage(flightDetail.xpath("//li[@class='per']/span/img/@src").toString())
                 .replace("%", "")));
         List<Selectable> nodes = flightDetail.xpath("div[@class='del_com']/div").nodes();
         String[] fromInfo = extractTerminalDetail(nodes.get(5));
@@ -153,11 +157,16 @@ public class DailyFlightSpider {
     }
 
     public static void main(String[] args) {
-        //LocalDate date = LocalDate.now().minusDays(182);
-        LocalDate date = LocalDate.of(2018, 5, 1);
-        while (date.isBefore(LocalDate.now())) {
-            DailyFlightSpider spider = new DailyFlightSpider(date.getYear(), date.getMonthValue(), date.getDayOfMonth());
-            date = date.plusDays(1);
+        File jarPath = new File(DailyFlightSpider.class.getProtectionDomain().getCodeSource().getLocation().getPath());
+        if (jarPath.isDirectory() || !jarPath.getAbsolutePath().matches(".*-date-[0-9]{4}-[0-9]{2}\\.jar")) {
+            throw new IllegalArgumentException("Incorrect jar file name: " + jarPath);
+        }
+        String jarName = jarPath.getName();
+        String[] yearMonth = jarName.substring(jarName.indexOf("-date-") + 6, jarName.lastIndexOf('.')).split("-");
+        int year = Integer.valueOf(yearMonth[0]);
+        int month = Integer.valueOf(yearMonth[1]);
+        for (int i = 1, days = Month.of(month).length(Year.isLeap(year)); i <= days; i++) {
+            DailyFlightSpider spider = new DailyFlightSpider(year, month, i);
             MultiplePageProcessor processor = new MultiplePageProcessor(Site.me().setCharset("UTF-8").setRetryTimes(3));
             processor.addProcessMethod(spider);
             Spider.create(processor)
